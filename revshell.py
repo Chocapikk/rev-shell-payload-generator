@@ -12,7 +12,7 @@ class NetworkInterfaces:
     @staticmethod
     def _get_public_ip():
         try:
-            resp = urllib.request.urlopen("https://ifconfig.me", timeout=3)
+            resp = urllib.request.urlopen("https://api4.ipify.org", timeout=3)
             return resp.read().decode().strip()
         except Exception:
             return None
