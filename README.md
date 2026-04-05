@@ -1,46 +1,46 @@
 # Rev Shell Payload Generator
 
-Generates reverse shell payloads for Bash, Python, Netcat, PHP, PowerShell, and CMD.
+Generates reverse shell payloads for Bash, Python, Netcat, PHP, Perl, Ruby, Lua, PowerShell, Socat and more.
 
 Features:
-- Automatic IP detection
-- Port validation
-- Generates raw and URL-encoded payloads
-- Ready-to-copy listener commands
+- Automatic network interface detection (no subprocess, pure Python)
+- Real-time payload generation (no page reload)
+- Multiple payload types with syntax highlighting
+- Encoding tab with chainable encoders (URL, Base64, Hex, HTML entities, Unicode, ROT13...)
+- Ready-to-copy listener commands (nc, rlwrap, socat, pwncat-vl, Metasploit, rustcat, ncat SSL)
+- Payloads defined in YAML for easy extension
+- Click-to-copy on any payload or command
 
-Usage (CLI):
-
-Run the script:
-   python3 shevshell.py
-
-The CLI displays incoming requests and generated payload data. Payload generation is handled through the web interface.
-
-Web Version:
-
-A Flask-based web interface is included for generating payloads.
-
-To run the web app:
+Usage:
 
 1. Install dependencies:
-   pip install flask
+   ```
+   pip install flask pyyaml
+   ```
 
 2. Start the server:
-   python3 shevshell.py
+   ```
+   python3 revshell.py
+   ```
 
 3. Open your browser and go to:
    http://127.0.0.1:5000
 
-4. Use the web interface to:
-   - Select shell type
-   - Enter IP and port
-   - Generate payloads
-   - Copy listener commands
+4. Select your interface, port, and payload type. Everything updates in real-time.
+
+Adding payloads:
+
+Edit `payloads.yml` to add new payloads or listeners. No Python changes needed.
 
 Requirements:
 - Python 3.x
-- Flask (for web interface)
-- Netcat (optional, for listener)
+- Flask
+- PyYAML
 
 Notes:
 This tool is intended for penetration testing and educational use only.
 Only use it on systems you own or have explicit permission to test. Of course 😉
+
+---
+
+stlth_r4k3r 🇦🇺🫂❤️‍🔥🇫🇷 Chocapikk

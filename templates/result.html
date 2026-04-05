@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <script>
+        function copyToClipboard(id, btn) {
+            const text = document.getElementById(id).innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                const original = btn.innerText;
+                btn.innerText = "Copied!";
+                setTimeout(() => { btn.innerText = original; }, 1000);
+            });
+        }
+    </script>
+{% endblock %}
+
+{% block content %}
+    <h2>Generated Payload</h2>
+
+    {% if note %}
+    <p style="color:#888; font-size: 12px;">{{ note }}</p>
+    {% endif %}
+
+    <div style="text-align: left; max-width: 700px; margin: 0 auto;">
+
+        <h3>Listeners</h3>
+        {% for listener in listeners %}
+        <p style="color:#888; font-size: 11px; margin-bottom: 2px;">{{ listener.name }}</p>
+        <pre id="listener-{{ loop.index }}">{{ listener.command }}</pre>
+        <button onclick="copyToClipboard('listener-{{ loop.index }}', this)">Copy</button>
+        {% endfor %}
+
+        <h3>Raw Payload</h3>
+        <pre id="raw">{{ payload }}</pre>
+        <button onclick="copyToClipboard('raw', this)">Copy</button>
+
+        <h3>URL Encoded</h3>
+        <pre id="encoded">{{ encoded }}</pre>
+        <button onclick="copyToClipboard('encoded', this)">Copy</button>
+
+        <h3>Base64 Encoded</h3>
+        <pre id="b64">{{ b64 }}</pre>
+        <button onclick="copyToClipboard('b64', this)">Copy</button>
+
+    </div>
+
+    <br>
+    <a href="/">Back</a>
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block head %}
+<script>
+    const PAYLOADS = {{ payloads | tojson }};
+    const LISTENERS = {{ listeners | tojson }};
+
+    function update() {
+        const ip = document.getElementById("ip").value;
+        const port = document.getElementById("port").value;
+        const type = document.getElementById("type").value;
+        const tab = document.querySelector(".tab.active")?.dataset.tab || "payload";
+
+        const entry = PAYLOADS[type];
+        if (!entry || !ip || !port) {
+            document.getElementById("output").innerHTML = "";
+            return;
+        }
+
+        const payload = entry.payload.replaceAll("{ip}", ip).replaceAll("{port}", port);
+
+        if (tab === "payload") {
+            showPayload(payload, entry.note);
+        } else if (tab === "listeners") {
+            showListeners(ip, port);
+        } else if (tab === "encode") {
+            showEncoded(payload);
+        }
+    }
+
+    function colorize(text) {
+        let s = text;
+
+        s = s.replace(/('.*?'|".*?")/g, '\x00STR$1\x01');
+        s = s.replace(/(\$\w+)/g, '\x00VAR$1\x01');
+        s = s.replace(/^([\w][\w.-]*)/gm, '\x00CMD$1\x01');
+        s = s.replace(/\s(--?[\w][\w-]*)/g, ' \x00FLAG$1\x01');
+        s = s.replace(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g, '\x00IP$1\x01');
+        s = s.replace(/\b(\d{2,5})\b/g, '\x00NUM$1\x01');
+        s = s.replace(/([|><])/g, '\x00OP$1\x01');
+
+        s = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+        s = s.replace(/\x00STR(.*?)\x01/g, '<span class="sh-str">$1</span>');
+        s = s.replace(/\x00CMD(.*?)\x01/g, '<span class="sh-cmd">$1</span>');
+        s = s.replace(/\x00FLAG(.*?)\x01/g, '<span class="sh-flag">$1</span>');
+        s = s.replace(/\x00IP(.*?)\x01/g, '<span class="sh-ip">$1</span>');
+        s = s.replace(/\x00NUM(.*?)\x01/g, '<span class="sh-num">$1</span>');
+        s = s.replace(/\x00OP(.*?)\x01/g, '<span class="sh-op">$1</span>');
+        s = s.replace(/\x00VAR(.*?)\x01/g, '<span class="sh-var">$1</span>');
+
+        return s;
+    }
+
+    function makePre(id, text, colored) {
+        const pre = document.createElement("pre");
+        pre.id = id;
+        pre.onclick = function() { copy(id, this); };
+        pre.dataset.raw = text;
+        if (colored) {
+            pre.innerHTML = colorize(text);
+        } else {
+            pre.textContent = text;
+        }
+        return pre;
+    }
+
+    function makeLabel(text) {
+        const p = document.createElement("p");
+        p.className = "entry-label";
+        p.textContent = text;
+        return p;
+    }
+
+    function showPayload(payload, note) {
+        const out = document.getElementById("output");
+        out.innerHTML = "";
+
+        if (note) {
+            const p = document.createElement("p");
+            p.className = "note";
+            p.textContent = note;
+            out.appendChild(p);
+        }
+
+        out.appendChild(makePre("p-raw", payload, true));
+    }
+
+    function showListeners(ip, port) {
+        const out = document.getElementById("output");
+        out.innerHTML = "";
+
+        for (const [key, listener] of Object.entries(LISTENERS)) {
+            const cmd = listener.command.replaceAll("{ip}", ip).replaceAll("{port}", port);
+            out.appendChild(makeLabel(listener.name));
+            out.appendChild(makePre("l-" + key, cmd, true));
+        }
+    }
+
+    const ENCODERS = {
+        "url": { name: "URL Encoded", fn: s => encodeURIComponent(s) },
+        "dblurl": { name: "Double URL", fn: s => encodeURIComponent(encodeURIComponent(s)) },
+        "b64": { name: "Base64", fn: s => btoa(s) },
+        "b64url": { name: "Base64 + URL", fn: s => encodeURIComponent(btoa(s)) },
+        "hex": { name: "Hex (\\x)", fn: s => [...new TextEncoder().encode(s)].map(b => "\\x" + b.toString(16).padStart(2, "0")).join("") },
+        "hex0x": { name: "Hex (0x)", fn: s => "0x" + [...new TextEncoder().encode(s)].map(b => b.toString(16).padStart(2, "0")).join("") },
+        "octal": { name: "Octal", fn: s => [...new TextEncoder().encode(s)].map(b => "\\" + b.toString(8).padStart(3, "0")).join("") },
+        "html": { name: "HTML Entities", fn: s => [...s].map(c => `&#${c.charCodeAt(0)};`).join("") },
+        "unicode": { name: "Unicode Escape", fn: s => [...s].map(c => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`).join("") },
+        "rot13": { name: "ROT13", fn: s => s.replace(/[a-zA-Z]/g, c => String.fromCharCode(c.charCodeAt(0) + (c.toLowerCase() < 'n' ? 13 : -13))) },
+        "rev": { name: "Reverse", fn: s => [...s].reverse().join("") },
+    };
+
+    let chain = [];
+
+    function showEncoded(payload) {
+        const out = document.getElementById("output");
+        out.innerHTML = "";
+
+        const btns = document.createElement("div");
+        btns.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-bottom:15px;";
+        for (const [key, enc] of Object.entries(ENCODERS)) {
+            const btn = document.createElement("button");
+            btn.className = "enc-btn";
+            btn.textContent = enc.name;
+            btn.onclick = () => { chain.push(key); update(); };
+            btns.appendChild(btn);
+        }
+        out.appendChild(btns);
+
+        const chainDiv = document.createElement("div");
+        chainDiv.style.cssText = "display:flex;gap:6px;margin-bottom:15px;align-items:center;";
+        chainDiv.innerHTML = `<span class="entry-label" style="margin:0;">Chain:</span><span style="color:#888;font-size:11px;">${chain.length ? chain.map(k => ENCODERS[k].name).join(" → ") : "none"}</span>`;
+        const clearBtn = document.createElement("button");
+        clearBtn.className = "enc-btn";
+        clearBtn.textContent = "Clear";
+        clearBtn.style.marginLeft = "auto";
+        clearBtn.onclick = () => { chain = []; update(); };
+        chainDiv.appendChild(clearBtn);
+        out.appendChild(chainDiv);
+
+        out.appendChild(makeLabel("Raw"));
+        out.appendChild(makePre("e-raw", payload, true));
+
+        if (chain.length) {
+            let result = payload;
+            for (const key of chain) {
+                try { result = ENCODERS[key].fn(result); } catch(e) { result = "[encoding error]"; break; }
+            }
+            out.appendChild(makeLabel("Encoded (" + chain.map(k => ENCODERS[k].name).join(" → ") + ")"));
+            out.appendChild(makePre("e-result", result, false));
+        }
+    }
+
+    function switchTab(el) {
+        document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+        el.classList.add("active");
+        update();
+    }
+
+    function copy(id, el) {
+        const raw = el.dataset.raw || el.textContent;
+        navigator.clipboard.writeText(raw).then(() => {
+            el.classList.add("copied");
+            setTimeout(() => el.classList.remove("copied"), 500);
+        });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("ip").addEventListener("change", update);
+        document.getElementById("port").addEventListener("input", update);
+        document.getElementById("type").addEventListener("change", update);
+        update();
+    });
+</script>
+{% endblock %}
+
+{% block content %}
+    <h2>Reverse Shell Generator</h2>
+
+    <div class="controls">
+        <div class="form-group">
+            <label>Interface</label>
+            <select id="ip">
+                {% for iface, ip in ips.items() %}
+                <option value="{{ ip }}" {% if ip == default_ip %}selected{% endif %}>
+                    {{ iface }} &mdash; {{ ip }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group port">
+            <label>Port</label>
+            <input id="port" value="4444">
+        </div>
+
+        <div class="form-group">
+            <label>Payload</label>
+            <select id="type">
+                {% for key, entry in payloads.items() %}
+                <option value="{{ key }}">{{ entry.name }} ({{ entry.platform }})</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" data-tab="payload" onclick="switchTab(this)">Payload</button>
+        <button class="tab" data-tab="listeners" onclick="switchTab(this)">Listeners</button>
+        <button class="tab" data-tab="encode" onclick="switchTab(this)">Encode</button>
+    </div>
+
+    <div id="output"></div>
+{% endblock %}
